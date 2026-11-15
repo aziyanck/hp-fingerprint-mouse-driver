@@ -1,0 +1,13 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl unmask fprintd.service 2>/dev/null || true
+    systemctl start fprintd.service 2>/dev/null || true
+    udevadm control --reload-rules 2>/dev/null || true
+    udevadm trigger 2>/dev/null || true
+    systemctl reload dbus 2>/dev/null || true
+fi
+
+exit 0

@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+systemctl stop python3-validity.service 2>/dev/null || true
+systemctl stop open-fprintd.service 2>/dev/null || true
+systemctl disable python3-validity.service 2>/dev/null || true
+systemctl disable open-fprintd.service 2>/dev/null || true
+
+exit 0

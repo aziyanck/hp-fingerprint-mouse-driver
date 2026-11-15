@@ -1,0 +1,17 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest & coverage cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Temporary / OS files
+*.swp
+*.swo
+*~
+.DS_Store
+*.deb
+ISSUES_FACED_AND_RESOLUTIONS.md

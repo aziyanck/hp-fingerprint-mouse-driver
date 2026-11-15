@@ -1,0 +1,17 @@
+[Unit]
+Description=HP USB Fingerprint Mouse Driver Daemon (06cb:00c3)
+After=open-fprintd.service
+Wants=open-fprintd.service
+
+[Service]
+Type=simple
+# Always restart: a clean exit is either the sensor rebooting itself after
+# init_flash()/upload_fwext(), or the daemon dropping a stale USB handle after
+# re-enumeration. Both need a fresh process. backoff() in dbus-service keeps
+# this from becoming a tight crash loop.
+Restart=always
+RestartSec=3
+ExecStart=/usr/local/lib/hp-fingerprint-mouse/dbus-service --debug
+
+[Install]
+WantedBy=multi-user.target

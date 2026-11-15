@@ -1,0 +1,109 @@
+import logging
+import os
+import typing
+from os.path import basename
+from time import ctime
+
+from .firmware_tables import FIRMWARE_NAMES
+from .flash import erase_flash, write_flash_all, write_fw_signature, get_fw_info
+from .init_data_dir import PYTHON_VALIDITY_FIRMWARE_DIR
+from .sensor import reboot, write_hw_reg32, read_hw_reg32, identify_sensor
+from .usb import usb, SupportedDevices
+
+firmware_home = PYTHON_VALIDITY_FIRMWARE_DIR
+_INVALID_FIRMWARE_SIGNATURE = 'Signature validation failed: 044f'
+
+
+def default_fwext_name():
+    dev = SupportedDevices.from_usbid(usb.usb_dev().idVendor, usb.usb_dev().idProduct)
+    # It looks like the firmware file must match DLL, not the hardware.
+    # Both DLL and xpfwext are universal.
+    # The device dependant code seems to be loaded dynamically (via encrypted blobs).
+    # So, it is important that xpfwext file is matching the blobs contents.
+    return FIRMWARE_NAMES[dev]
+
+
+def read_or_repair_firmware_info():
+    """Recover the one known interrupted-upload state before retrying.
+
+    A missing firmware partition returns b004 and is handled as normal.  A
+    service restart during a write leaves a partial partition that responds
+    with 044f forever; that partition has no valid firmware to preserve, so
+    it can be erased and uploaded again.  Other read failures remain visible
+    instead of turning into a destructive recovery attempt.
+    """
+    try:
+        return get_fw_info(2)
+    except Exception as error:
+        if str(error) != _INVALID_FIRMWARE_SIGNATURE:
+            raise
+        logging.warning(
+            'Firmware partition has an interrupted upload (%s); erasing it '
+            'before a clean re-upload.', error)
+        erase_flash(2)
+        return None
+
+
+def upload_fwext(fw_path: typing.Optional[str] = None):
+    fwi = read_or_repair_firmware_info()
+    if fwi is not None:
+        logging.info('Detected firmware version %d.%d (%s))' %
+                     (fwi.major, fwi.minor, ctime(fwi.buildtime)))
+        return
+    else:
+        logging.info('No firmware detected. Uploading...')
+
+    # no idea what this is:
+    write_hw_reg32(0x8000205c, 7)
+    if read_hw_reg32(0x80002080) not in [2, 3]:
+        raise Exception('Unexpected register value')
+
+    dev = identify_sensor()
+    logging.debug('Sensor: %s' % dev.name)
+    # ^ TODO -- what is the real reason to detect HW at this stage?
+    #           just a guess: perhaps it is used to construct fwext filename
+
+    fw_filename = default_fwext_name()
+    candidate_paths = [
+        fw_path,
+        os.path.join(firmware_home, fw_filename),
+        os.path.join('/usr/share/python-validity', fw_filename),
+        os.path.join('/usr/share/python-validity/firmware', fw_filename),
+        os.path.join('/var/lib/python-validity', fw_filename),
+        os.path.join(os.path.dirname(__file__), '..', 'firmware', fw_filename),
+        os.path.join(os.path.dirname(__file__), 'firmware', fw_filename),
+    ]
+
+    resolved_path = None
+    for p in candidate_paths:
+        if p and os.path.isfile(p):
+            resolved_path = p
+            break
+
+    if not resolved_path:
+        raise FileNotFoundError(
+            'Could not find firmware extension payload %s in any of: %s'
+            % (fw_filename, [p for p in candidate_paths if p]))
+
+    fw_path = resolved_path
+    logging.info('Using firmware payload at: %s' % fw_path)
+
+    with open(fw_path, 'rb') as f:
+        fwext = f.read()
+
+    fwext = fwext[fwext.index(b'\x1a') + 1:]
+    fwext, signature = fwext[:-0x100], fwext[-0x100:]
+
+    write_flash_all(2, 0, fwext)
+    write_fw_signature(2, signature)
+
+    fwi = get_fw_info(2)
+    if fwi is None:
+        raise Exception('No firmware detected')
+
+    logging.info('Loaded FWExt version %d.%d (%s), %d modules' %
+                 (fwi.major, fwi.minor, ctime(fwi.buildtime), len(fwi.modules)))
+
+    # Reboot
+    reboot()
+    raise Exception('Reboot')

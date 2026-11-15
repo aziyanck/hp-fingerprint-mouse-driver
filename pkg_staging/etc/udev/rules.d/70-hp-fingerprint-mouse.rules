@@ -1,0 +1,15 @@
+# Udev rule for HP USB Fingerprint Mouse
+# Internal USB Hub: 03f0:4e4a
+# Mouse Optical HID: 03f0:4b4a
+# Synaptics Fingerprint Biometric Sensor: 06cb:00c3
+
+# Disable USB autosuspend on the mouse's internal hub to prevent the biometric sensor from sleeping
+ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="03f0", ATTR{idProduct}=="4e4a", ATTR{power/control}="on"
+
+# Biometric sensor configuration: wake on add/change, grant plugdev/user permissions, trigger service
+ACTION=="add|change", SUBSYSTEM=="usb", ATTRS{idVendor}=="06cb", ATTRS{idProduct}=="00c3", ATTR{power/control}="on", MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="systemd", ENV{SYSTEMD_WANTS}+="python3-validity.service"
+
+# Automatic hotplug handling: restart service on plug-in, stop on unplug
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="06cb", ATTR{idProduct}=="00c3", RUN+="/usr/bin/systemctl restart --no-block python3-validity.service"
+ACTION=="remove", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_VENDOR_ID}=="06cb", ENV{ID_MODEL_ID}=="00c3", RUN+="/usr/bin/systemctl stop --no-block python3-validity.service"
+

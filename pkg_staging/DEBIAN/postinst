@@ -1,0 +1,35 @@
+#!/bin/sh
+set -e
+
+# Mask stock fprintd to avoid D-Bus conflicts
+systemctl stop fprintd.service 2>/dev/null || true
+systemctl mask fprintd.service 2>/dev/null || true
+
+# Reload udev and systemd
+udevadm control --reload-rules 2>/dev/null || true
+udevadm trigger --attr-match=idVendor=06cb --attr-match=idProduct=00c3 2>/dev/null || udevadm trigger 2>/dev/null || true
+systemctl reload dbus 2>/dev/null || true
+systemctl daemon-reload 2>/dev/null || true
+
+# Cache motherboard serial for unprivileged diagnostic tools and services
+if [ -r /sys/class/dmi/id/product_serial ]; then
+    cat /sys/class/dmi/id/product_serial > /etc/hp-fingerprint-mouse-serial.txt 2>/dev/null || true
+    chmod 644 /etc/hp-fingerprint-mouse-serial.txt 2>/dev/null || true
+fi
+
+# Clear any stale restart backoff state
+rm -f /var/run/python-validity/backoff 2>/dev/null || true
+systemctl reset-failed python3-validity.service 2>/dev/null || true
+
+# Enable and start services
+systemctl enable open-fprintd.service 2>/dev/null || true
+systemctl enable python3-validity.service 2>/dev/null || true
+systemctl restart open-fprintd.service 2>/dev/null || true
+systemctl restart python3-validity.service 2>/dev/null || true
+
+# Configure PAM
+if command -v pam-auth-update >/dev/null 2>&1; then
+    pam-auth-update --enable fprintd 2>/dev/null || true
+fi
+
+exit 0
