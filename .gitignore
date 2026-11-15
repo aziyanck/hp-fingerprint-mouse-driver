@@ -13,5 +13,8 @@ htmlcov/
 *.swo
 *~
 .DS_Store
-*.deb
 ISSUES_FACED_AND_RESOLUTIONS.md
+
+
+RELEASE_NOTES_*
+VERSIONS.md

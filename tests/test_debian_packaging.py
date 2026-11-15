@@ -6,6 +6,15 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 class DebianPackagingTests(unittest.TestCase):
+    def test_mouse_reset_cannot_stop_service_via_udev(self):
+        for path in (
+            ROOT / '70-hp-fingerprint-mouse.rules',
+            ROOT / 'pkg_staging/etc/udev/rules.d/70-hp-fingerprint-mouse.rules',
+        ):
+            rules = path.read_text()
+            self.assertIn('restart --no-block python3-validity.service', rules)
+            self.assertNotIn('stop --no-block python3-validity.service', rules)
+
     def test_postinst_does_not_contact_sensor_or_modify_auth_stack(self):
         postinst = (ROOT / 'debian/python3-validity.postinst').read_text()
 

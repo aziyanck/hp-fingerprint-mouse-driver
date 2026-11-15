@@ -9,7 +9,7 @@ ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="03f0", ATTR{idProduct}=
 # Biometric sensor configuration: wake on add/change, grant plugdev/user permissions, trigger service
 ACTION=="add|change", SUBSYSTEM=="usb", ATTRS{idVendor}=="06cb", ATTRS{idProduct}=="00c3", ATTR{power/control}="on", MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="systemd", ENV{SYSTEMD_WANTS}+="python3-validity.service"
 
-# Automatic hotplug handling: restart service on plug-in, stop on unplug
+# Restart on plug-in. A sensor USB reset also emits a remove event; stopping
+# the service on remove can race with the following add and leave it stopped.
 ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="06cb", ATTR{idProduct}=="00c3", RUN+="/usr/bin/systemctl restart --no-block python3-validity.service"
-ACTION=="remove", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_VENDOR_ID}=="06cb", ENV{ID_MODEL_ID}=="00c3", RUN+="/usr/bin/systemctl stop --no-block python3-validity.service"
 

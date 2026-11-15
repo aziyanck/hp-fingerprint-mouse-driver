@@ -29,12 +29,15 @@ Inside a single USB cable, this mouse contains two independent hardware devices 
 
 ## Installation
 
+Current Ubuntu / Debian release: **v1.0.1** (`1.0.1-1`).
+Versioned packages and release notes are in `../releases/v1.0.0/` and `../releases/v1.0.1/`, outside this Git repository.
+
 ### For Ubuntu / Debian-based Systems
 
 #### Method 1: Pre-built Debian Package (Recommended)
 ```bash
 cd hp-fingerprint-mouse-linux
-sudo dpkg -i hp-fingerprint-mouse-support_1.0-1_all.deb
+sudo dpkg -i hp-fingerprint-mouse-support_1.0.1-1_all.deb
 sudo apt-get install -f   # Resolves any missing dependencies automatically
 ```
 
@@ -102,6 +105,25 @@ sudo pam-auth-update
 ```
 *(Ensure `[*] Fingerprint authentication` is checked with the spacebar, then press Tab and Enter to Save).*
 
+### 5. Fingerprint login after reboot (Ubuntu / Debian)
+
+The package enables both system services and PAM fingerprint authentication during installation. To check an existing installation, run:
+
+```bash
+sudo systemctl enable --now open-fprintd.service python3-validity.service
+sudo pam-auth-update --enable fprintd
+fprintd-verify
+```
+
+Reboot with the mouse connected. At the graphical login screen, select your user and touch the sensor. A password prompt may remain visible even when fingerprint login is available. If the fingerprint option is missing, first check whether the driver registered the device during this boot:
+
+```bash
+systemctl status open-fprintd.service python3-validity.service --no-pager
+journalctl -b -u python3-validity.service --no-pager
+```
+
+Version 1.0.1 removes a udev stop rule that could stop the driver when its startup USB reset temporarily disconnects the sensor. Hardware boot behavior has not been verified on every host. A password prompt **before** the graphical login screen (for example, full-disk encryption) cannot be unlocked by this userspace driver. A password may also be required later to unlock the desktop keyring.
+
 #### On Arch Linux:
 1. **For `sudo`:** Add `auth sufficient pam_fprintd.so` as the first auth rule in `/etc/pam.d/sudo`:
    ```pam
@@ -153,7 +175,7 @@ hp-fingerprint-mouse-linux/
 ├── openfprintd/                     # FreeDesktop D-Bus bridge implementation
 ├── python-validity-dbus/            # Sensor daemon service entrypoint
 ├── test_hp_mouse.py                 # Diagnostic test utility (installed as hp-mouse-test)
-├── tests/                           # Automated pytest regression test suite (61 tests)
+├── tests/                           # Automated pytest regression test suite (62 tests)
 ├── uninstall.sh                     # Uninstallation script
 └── validitysensor/                  # Low-level USB, flash, and TLS driver engine
 ```
